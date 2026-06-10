@@ -34,7 +34,7 @@
    ```
 
 5. Obsidian을 다시 불러옵니다.
-6. Community plugins에서 `HWPX Editor`를 활성화합니다.
+6. Community plugins에서 `rHWP Editor`를 활성화합니다.
 7. vault 안의 `.hwp` 또는 `.hwpx` 파일을 엽니다.
 
 ## 테스트 Vault

@@ -38,7 +38,7 @@ await writeFile(
   )
 );
 
-console.log(`Deployed HWPX Editor to ${targetDir}`);
+console.log(`Deployed rHWP Editor to ${targetDir}`);
 
 function expandHome(value) {
   if (!value) return value;

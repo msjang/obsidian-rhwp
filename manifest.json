@@ -1,6 +1,6 @@
 {
   "id": "obsidian-rhwp",
-  "name": "HWPX Editor",
+  "name": "rHWP Editor",
   "version": "0.2.0",
   "minAppVersion": "1.8.7",
   "description": "Open, create, and edit HWP/HWPX files directly in Obsidian using rhwp.",

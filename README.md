@@ -1,4 +1,4 @@
-# HWP(X) for Obsidian
+# rHWP Editor for Obsidian
 
 [![Version](https://img.shields.io/badge/version-0.2.0-blue?style=flat-square)](https://github.com/msjang/obsidian-rhwp)
 [![License](https://img.shields.io/github/license/msjang/obsidian-rhwp?style=flat-square)](LICENSE)
@@ -34,7 +34,7 @@ The default new file format is `HWP`. You can change it to `HWPX` in Settings.
 
 ### Large file warning
 
-Large files can make Obsidian slow while rendering. HWPX Editor can ask before opening files over the configured size. It can be configured in Settings.
+Large files can make Obsidian slow while rendering. rHWP Editor can ask before opening files over the configured size. It can be configured in Settings.
 
 ## Development
 
@@ -68,7 +68,7 @@ Refer to [prj/](prj/) in dev branch for development, verification, and release p
 
 ### 큰 파일 열기 확인
 
-큰 파일은 렌더링 중 옵시디언을 느리게 만들 수 있습니다. HWPX Editor는 설정한 기준 용량보다 큰 파일을 열기 전에 확인할 수 있습니다. 기준 파일 용량은 설정에서 변경할 수 있습니다.
+큰 파일은 렌더링 중 옵시디언을 느리게 만들 수 있습니다. rHWP Editor는 설정한 기준 용량보다 큰 파일을 열기 전에 확인할 수 있습니다. 기준 파일 용량은 설정에서 변경할 수 있습니다.
 
 ## 개발
 

@@ -97,7 +97,7 @@ const I18N = {
     settingLargeFileAsk: "Ask before opening",
     settingLargeFileThresholdDesc: "Files larger than this size can be slower to render.",
     settingLargeFileThresholdName: "Large file threshold (MB)",
-    settingTitle: "HWPX Editor"
+    settingTitle: "rHWP Editor"
   },
   ko: {
     backToReadOnly: "읽기 모드로 돌아가기",
@@ -148,7 +148,7 @@ const I18N = {
     settingLargeFileAsk: "열기 전에 묻기",
     settingLargeFileThresholdDesc: "이 용량보다 큰 파일은 렌더링이 느릴 수 있습니다.",
     settingLargeFileThresholdName: "큰 파일 기준 용량(MB)",
-    settingTitle: "HWPX Editor"
+    settingTitle: "rHWP Editor"
   }
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -546,7 +546,7 @@ class RhwpFileView extends FileView {
   }
 
   getDisplayText(): string {
-    return this.currentFile?.basename ?? "HWPX Editor";
+    return this.currentFile?.basename ?? "rHWP Editor";
   }
 
   getIcon(): string {
@@ -741,7 +741,7 @@ class RhwpFileView extends FileView {
 
   private renderTitle(toolbarEl: HTMLElement, file: TFile | null): void {
     if (!file || this.mode === "edit") {
-      toolbarEl.createDiv({ cls: "rhwp-title", text: file?.name ?? "HWPX Editor" });
+      toolbarEl.createDiv({ cls: "rhwp-title", text: file?.name ?? "rHWP Editor" });
       return;
     }
 
