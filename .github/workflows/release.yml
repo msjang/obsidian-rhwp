@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -42,6 +44,15 @@ jobs:
           unzip -l release/rhwp-editor.zip | grep -q "rhwp_bg.wasm"
           unzip -l release/rhwp-editor.zip | grep -q "rhwp-studio/index.html"
           unzip -l release/rhwp-editor.zip | grep -q "rhwp-assets.json"
+
+      - name: Generate artifact attestations
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            release/main.js
+            release/manifest.json
+            release/styles.css
+            release/rhwp-editor.zip
 
       - name: Create or update GitHub Release
         env:

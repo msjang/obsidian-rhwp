@@ -19,7 +19,7 @@ import {
 import initRhwp, { HwpDocument } from "@rhwp/core";
 import { createEditor } from "@rhwp/editor";
 import type { RhwpEditor } from "@rhwp/editor";
-import JSZip from "jszip";
+import { inflateRawSync } from "zlib";
 
 const VIEW_TYPE_RHWP = "rhwp-view";
 const RHWP_CORE_VERSION = "0.7.13";
@@ -27,6 +27,9 @@ const BYTES_PER_MB = 1024 * 1024;
 const RELEASE_ZIP_NAME = "rhwp-editor.zip";
 const ASSET_MARKER_FILE = "rhwp-assets.json";
 const ASSET_PATHS = ["rhwp_bg.wasm", "rhwp-studio/index.html"];
+const ZIP_LOCAL_FILE_HEADER = 0x04034b50;
+const ZIP_CENTRAL_DIRECTORY_HEADER = 0x02014b50;
+const ZIP_END_OF_CENTRAL_DIRECTORY = 0x06054b50;
 
 let rhwpReady: Promise<void> | null = null;
 type RhwpMode = "read" | "edit";
@@ -39,6 +42,12 @@ interface RhwpSettings {
   newFileFormat: NewFileFormat;
   largeFileBehavior: LargeFileBehavior;
   largeFileThresholdMb: number;
+}
+
+interface ReleaseZipEntry {
+  path: string;
+  directory: boolean;
+  bytes: Uint8Array;
 }
 
 const DEFAULT_SETTINGS: RhwpSettings = {
@@ -203,7 +212,7 @@ export default class RhwpPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     this.settings = {
       ...DEFAULT_SETTINGS,
-      ...(await this.loadData())
+      ...parseSettings(await this.loadData())
     };
   }
 
@@ -313,17 +322,15 @@ export default class RhwpPlugin extends Plugin {
       throw new Error(`GitHub release asset returned HTTP ${response.status}.`);
     }
 
-    const zip = await JSZip.loadAsync(response.arrayBuffer);
-
-    for (const [rawPath, entry] of Object.entries(zip.files)) {
-      const relativePath = normalizeZipPath(rawPath);
+    for (const entry of extractZipEntries(response.arrayBuffer)) {
+      const relativePath = normalizeZipPath(entry.path);
       if (!relativePath || !isInstallableAssetPath(relativePath)) {
         continue;
       }
 
       const targetPath = this.getPluginPath(relativePath);
 
-      if (entry.dir) {
+      if (entry.directory) {
         if (!(await this.app.vault.adapter.exists(targetPath))) {
           await this.app.vault.adapter.mkdir(targetPath);
         }
@@ -331,8 +338,7 @@ export default class RhwpPlugin extends Plugin {
       }
 
       await this.ensureParentFolder(targetPath);
-      const bytes = await entry.async("uint8array");
-      await this.app.vault.adapter.writeBinary(targetPath, toArrayBuffer(bytes));
+      await this.app.vault.adapter.writeBinary(targetPath, toArrayBuffer(entry.bytes));
     }
   }
 
@@ -497,20 +503,20 @@ function formatDateTime(timestamp: number): string {
 }
 
 function registerMeasureTextWidth(): void {
-  const global = globalThis as typeof globalThis & {
+  const targetWindow = activeWindow as Window & {
     measureTextWidth?: (font: string, text: string) => number;
   };
 
-  if (typeof global.measureTextWidth === "function") {
+  if (typeof targetWindow.measureTextWidth === "function") {
     return;
   }
 
   let context: CanvasRenderingContext2D | null = null;
   let lastFont = "";
 
-  global.measureTextWidth = (font: string, text: string): number => {
+  targetWindow.measureTextWidth = (font: string, text: string): number => {
     if (!context) {
-      context = document.createElement("canvas").getContext("2d");
+      context = activeDocument.createElement("canvas").getContext("2d");
     }
 
     if (!context) {
@@ -719,7 +725,7 @@ class RhwpFileView extends FileView {
           const pageEl = this.pagesEl?.createDiv({ cls: "rhwp-page" });
           const svg = doc.renderPageSvg(pageIndex);
           if (pageEl) {
-            pageEl.innerHTML = svg;
+            appendSvg(pageEl, svg);
           }
         }
       } finally {
@@ -1176,7 +1182,10 @@ class RhwpSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: t("settingTitle") });
+
+    new Setting(containerEl)
+      .setName(t("settingTitle"))
+      .setHeading();
 
     new Setting(containerEl)
       .setName(t("settingFormatName"))
@@ -1229,6 +1238,128 @@ class RhwpSettingTab extends PluginSettingTab {
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(bytes);
   return copy.buffer;
+}
+
+function parseSettings(data: unknown): Partial<RhwpSettings> {
+  if (!data || typeof data !== "object") {
+    return {};
+  }
+
+  const source = data as Partial<Record<keyof RhwpSettings, unknown>>;
+  const settings: Partial<RhwpSettings> = {};
+
+  if (source.newFileFormat === "hwp" || source.newFileFormat === "hwpx") {
+    settings.newFileFormat = source.newFileFormat;
+  }
+
+  if (source.largeFileBehavior === "ask" || source.largeFileBehavior === "open") {
+    settings.largeFileBehavior = source.largeFileBehavior;
+  }
+
+  if (typeof source.largeFileThresholdMb === "number" && Number.isFinite(source.largeFileThresholdMb)) {
+    settings.largeFileThresholdMb = source.largeFileThresholdMb;
+  }
+
+  return settings;
+}
+
+function appendSvg(containerEl: HTMLElement, svgText: string): void {
+  const svgDocument = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  const svgEl = svgDocument.documentElement;
+
+  if (svgEl.tagName.toLowerCase() !== "svg") {
+    throw new Error("Rendered page is not valid SVG.");
+  }
+
+  containerEl.replaceChildren(activeDocument.importNode(svgEl, true));
+}
+
+function extractZipEntries(buffer: ArrayBuffer): ReleaseZipEntry[] {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const endOffset = findEndOfCentralDirectory(view);
+  const entryCount = readUint16(view, endOffset + 10);
+  const centralDirectoryOffset = readUint32(view, endOffset + 16);
+  const entries: ReleaseZipEntry[] = [];
+  let offset = centralDirectoryOffset;
+
+  for (let index = 0; index < entryCount; index += 1) {
+    if (readUint32(view, offset) !== ZIP_CENTRAL_DIRECTORY_HEADER) {
+      throw new Error("Invalid ZIP central directory.");
+    }
+
+    const flags = readUint16(view, offset + 8);
+    const method = readUint16(view, offset + 10);
+    const compressedSize = readUint32(view, offset + 20);
+    const fileNameLength = readUint16(view, offset + 28);
+    const extraLength = readUint16(view, offset + 30);
+    const commentLength = readUint16(view, offset + 32);
+    const localHeaderOffset = readUint32(view, offset + 42);
+    const nameStart = offset + 46;
+    const path = decodeZipFileName(bytes.subarray(nameStart, nameStart + fileNameLength));
+    const directory = path.endsWith("/");
+
+    entries.push({
+      path,
+      directory,
+      bytes: directory ? new Uint8Array() : readZipEntryBytes(view, bytes, localHeaderOffset, compressedSize, method)
+    });
+
+    offset = nameStart + fileNameLength + extraLength + commentLength;
+  }
+
+  return entries;
+}
+
+function readZipEntryBytes(
+  view: DataView,
+  zipBytes: Uint8Array,
+  localHeaderOffset: number,
+  compressedSize: number,
+  method: number
+): Uint8Array {
+  if (readUint32(view, localHeaderOffset) !== ZIP_LOCAL_FILE_HEADER) {
+    throw new Error("Invalid ZIP local file header.");
+  }
+
+  const fileNameLength = readUint16(view, localHeaderOffset + 26);
+  const extraLength = readUint16(view, localHeaderOffset + 28);
+  const dataStart = localHeaderOffset + 30 + fileNameLength + extraLength;
+  const compressedBytes = zipBytes.subarray(dataStart, dataStart + compressedSize);
+
+  if (method === 0) {
+    return compressedBytes;
+  }
+
+  if (method === 8) {
+    return inflateRawSync(compressedBytes);
+  }
+
+  throw new Error(`Unsupported ZIP compression method: ${method}.`);
+}
+
+function findEndOfCentralDirectory(view: DataView): number {
+  const minOffset = Math.max(0, view.byteLength - 22 - 65535);
+
+  for (let offset = view.byteLength - 22; offset >= minOffset; offset -= 1) {
+    if (readUint32(view, offset) === ZIP_END_OF_CENTRAL_DIRECTORY) {
+      return offset;
+    }
+  }
+
+  throw new Error("ZIP end of central directory not found.");
+}
+
+function decodeZipFileName(bytes: Uint8Array): string {
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function readUint16(view: DataView, offset: number): number {
+  return view.getUint16(offset, true);
+}
+
+function readUint32(view: DataView, offset: number): number {
+  return view.getUint32(offset, true);
 }
 
 function normalizeZipPath(rawPath: string): string | null {

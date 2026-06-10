@@ -1,6 +1,6 @@
 # rHWP Editor for Obsidian
 
-[![Version](https://img.shields.io/badge/version-0.2.1-blue?style=flat-square)](https://github.com/msjang/obsidian-rhwp-editor)
+[![Version](https://img.shields.io/badge/version-0.2.2-blue?style=flat-square)](https://github.com/msjang/obsidian-rhwp-editor)
 [![License](https://img.shields.io/github/license/msjang/obsidian-rhwp-editor?style=flat-square)](LICENSE)
 [![Obsidian](https://img.shields.io/badge/Obsidian-desktop%20plugin-7C3AED?style=flat-square)](https://obsidian.md)
 [![HWP/HWPX](https://img.shields.io/badge/HWP%2FHWPX-rhwp-2F855A?style=flat-square)](https://github.com/edwardkim/rhwp)

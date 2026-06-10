@@ -1,9 +1,9 @@
 {
   "id": "rhwp-editor",
   "name": "rHWP Editor",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minAppVersion": "1.8.7",
-  "description": "Open, create, and edit HWP/HWPX files directly in Obsidian using rhwp.",
+  "description": "Open, create, and edit HWP/HWPX files directly with rhwp.",
   "author": "msjang",
   "authorUrl": "https://github.com/msjang",
   "isDesktopOnly": true
