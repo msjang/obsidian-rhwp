@@ -1,6 +1,6 @@
 {
   "name": "obsidian-rhwp-editor",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Open, create, and edit HWP/HWPX files directly with rhwp.",
   "main": "main.js",
   "scripts": {
