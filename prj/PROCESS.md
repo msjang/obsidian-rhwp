@@ -5,7 +5,7 @@
 - 결정이 바뀌면 README와 문서를 함께 갱신합니다.
 - Obsidian에서 직접 확인할 수 있는 작은 구현 단위로 진행합니다.
 - HWP/HWPX 파일은 원본 문서로 취급하고, 사용자의 명시적 저장 없이 쓰지 않습니다.
-- 아키텍처 결정은 `docs/ADR.md`에 기록합니다.
+- 아키텍처 결정은 `prj/ADR.md`에 기록합니다.
 
 ## 로컬 작업 흐름
 
@@ -44,6 +44,10 @@
 ## 릴리스 체크리스트
 
 - 빌드가 성공합니다.
+- `npm run package:release`가 성공하고 `release/`에 `main.js`, `manifest.json`, `styles.css`, `obsidian-rhwp.zip`이 생성됩니다.
 - `manifest.json`의 플러그인 id와 최소 Obsidian 버전이 맞습니다.
 - 플러그인 폴더에 `main.js`, `styles.css`, `rhwp_bg.wasm`, `rhwp-studio/`가 있습니다.
+- `obsidian-rhwp.zip` 안에 `rhwp_bg.wasm`, `rhwp-studio/`, `rhwp-assets.json`이 있습니다.
+- GitHub Release tag는 `manifest.json`의 `version`과 같은 값으로 만듭니다.
+- GitHub Release asset에는 Obsidian이 직접 받는 `main.js`, `manifest.json`, `styles.css`와 추가 자산 설치에 쓰는 `obsidian-rhwp.zip`을 올립니다.
 - HWP/HWPX 파일을 열었을 때 문서 페이지가 렌더링되거나, 실패 시 읽을 수 있는 오류가 표시됩니다.

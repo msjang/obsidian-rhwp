@@ -26,6 +26,9 @@
 - [x] 프로젝트 워크스페이스와 플러그인 저장소를 단일 `obsidian-rhwp` 저장소로 통합.
 - [x] `rhwp-studio`를 포함하고 편집 모드가 로컬 iframe 자산을 가리키도록 변경.
 - [x] Obsidian 커뮤니티 설치의 release asset 처리 방식을 재확인하고 추가 자산 검증 필요성 기록.
+- [x] `obsidian-advanced-slides` 사례를 확인해 추가 자산이 플러그인 런타임 self-hydration으로 설치됨을 검증.
+- [x] `rhwp_bg.wasm`과 `rhwp-studio/`를 GitHub Release zip에서 설치하는 self-hydration 로직 추가.
+- [x] `main.js`, `manifest.json`, `styles.css`, `obsidian-rhwp.zip` 릴리즈 산출물 생성 스크립트 추가.
 
 ## 진행 중
 
@@ -34,11 +37,14 @@
 - [x] 폐기 가능한 샘플로 편집/내보내기 왕복 확인.
 - [x] Obsidian에서 편집 모드 이탈 확인창 검증.
 - [x] Obsidian에서 컨텍스트 메뉴의 빈 HWP/HWPX 생성 검증.
-- [ ] Obsidian에서 큰 파일 확인창 검증.
-- [ ] read-only/편집 모드의 속성 패널 레이아웃 검증.
-- [ ] 커뮤니티 플러그인 설치에서 `rhwp_bg.wasm`과 `rhwp-studio/` 자산이 함께 설치되는지 검증.
-- [ ] 추가 자산 설치 검증 후 GitHub Release asset과 Obsidian 커뮤니티 제출 절차 확정.
+- [x] Obsidian에서 큰 파일 확인창 검증.
+- [x] read-only/편집 모드의 속성 패널 레이아웃 검증.
+- [x] 커뮤니티 플러그인 설치에서 `rhwp_bg.wasm`과 `rhwp-studio/` 자산이 함께 설치되는지 검증.
+- [x] 추가 자산 설치 검증 후 GitHub Release asset과 Obsidian 커뮤니티 제출 절차 확정.
 - [x] Obsidian에서 read-only 인라인 이름 변경 검증.
+- [ ] GitHub Release `0.2.0`에 `main.js`, `manifest.json`, `styles.css`, `obsidian-rhwp.zip` 업로드.
+- [ ] 새 vault에서 커뮤니티 설치와 동일한 경로로 self-hydration 동작 확인.
+- [ ] `obsidianmd/obsidian-releases`에 community plugin 등록 PR 작성.
 
 ## 나중에
 

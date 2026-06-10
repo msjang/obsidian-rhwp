@@ -13,15 +13,20 @@ import {
   WorkspaceLeaf,
   getLanguage,
   normalizePath,
+  requestUrl,
   setIcon
 } from "obsidian";
 import initRhwp, { HwpDocument } from "@rhwp/core";
 import { createEditor } from "@rhwp/editor";
 import type { RhwpEditor } from "@rhwp/editor";
+import JSZip from "jszip";
 
 const VIEW_TYPE_RHWP = "rhwp-view";
 const RHWP_CORE_VERSION = "0.7.13";
 const BYTES_PER_MB = 1024 * 1024;
+const RELEASE_ZIP_NAME = "obsidian-rhwp.zip";
+const ASSET_MARKER_FILE = "rhwp-assets.json";
+const ASSET_PATHS = ["rhwp_bg.wasm", "rhwp-studio/index.html"];
 
 let rhwpReady: Promise<void> | null = null;
 type RhwpMode = "read" | "edit";
@@ -82,6 +87,8 @@ const I18N = {
     save: "Save",
     saved: "Saved {{name}}",
     saving: "Saving...",
+    assetsInstalling: "Installing HWP/HWPX editor assets...",
+    assetsInstallFailed: "Failed to install HWP/HWPX editor assets: {{message}}",
     settingFormatDesc: "HWP is the default because HWPX export/rendering is still less consistent in rhwp.",
     settingFormatName: "New file format",
     settingLargeFileBehaviorDesc: "Ask before opening files over the configured size, or always open them.",
@@ -131,6 +138,8 @@ const I18N = {
     save: "저장",
     saved: "{{name}} 저장됨",
     saving: "저장 중...",
+    assetsInstalling: "HWP/HWPX 편집기 자산을 설치하는 중...",
+    assetsInstallFailed: "HWP/HWPX 편집기 자산 설치 실패: {{message}}",
     settingFormatDesc: "rhwp의 HWPX 내보내기/렌더링 일관성이 아직 낮아서 HWP를 기본값으로 둡니다.",
     settingFormatName: "새 파일 형식",
     settingLargeFileBehaviorDesc: "설정한 용량보다 큰 파일을 열기 전에 물어볼지 정합니다.",
@@ -151,9 +160,14 @@ interface RhwpViewState extends Record<string, unknown> {
 
 export default class RhwpPlugin extends Plugin {
   settings: RhwpSettings = { ...DEFAULT_SETTINGS };
+  private assetsReady: Promise<void> | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    this.assetsReady = this.ensureBundledAssets();
+    void this.assetsReady.catch((error) => {
+      new Notice(t("assetsInstallFailed", { message: getErrorMessage(error) }));
+    });
 
     this.registerView(VIEW_TYPE_RHWP, (leaf) => new RhwpFileView(leaf, this));
     this.registerExtensions(["hwp", "hwpx"], VIEW_TYPE_RHWP);
@@ -198,12 +212,22 @@ export default class RhwpPlugin extends Plugin {
   }
 
   async ensureRhwpReady(): Promise<void> {
+    await this.ensureAssetsReady();
+
     if (!rhwpReady) {
       registerMeasureTextWidth();
       rhwpReady = initRhwp({ module_or_path: this.getWasmUrl() }).then(() => undefined);
     }
 
     return rhwpReady;
+  }
+
+  async ensureAssetsReady(): Promise<void> {
+    if (!this.assetsReady) {
+      this.assetsReady = this.ensureBundledAssets();
+    }
+
+    return this.assetsReady;
   }
 
   getWasmUrl(): string {
@@ -226,6 +250,125 @@ export default class RhwpPlugin extends Plugin {
     }
 
     return studioPath;
+  }
+
+  private async ensureBundledAssets(): Promise<void> {
+    if (await this.hasCurrentAssets()) {
+      return;
+    }
+
+    new Notice(t("assetsInstalling"));
+    await this.installReleaseAssets();
+
+    if (!(await this.hasRequiredAssets())) {
+      throw new Error("Required local assets are still missing after installation.");
+    }
+
+    await this.writeAssetMarker();
+  }
+
+  private async hasCurrentAssets(): Promise<boolean> {
+    if (!(await this.hasRequiredAssets())) {
+      return false;
+    }
+
+    const markerPath = this.getPluginPath(ASSET_MARKER_FILE);
+    const adapter = this.app.vault.adapter;
+
+    if (!(await adapter.exists(markerPath))) {
+      return false;
+    }
+
+    try {
+      const marker = JSON.parse(await adapter.read(markerPath)) as Partial<{
+        pluginVersion: string;
+        rhwpCoreVersion: string;
+      }>;
+
+      return marker.pluginVersion === this.manifest.version && marker.rhwpCoreVersion === RHWP_CORE_VERSION;
+    } catch {
+      return false;
+    }
+  }
+
+  private async hasRequiredAssets(): Promise<boolean> {
+    const adapter = this.app.vault.adapter;
+
+    for (const assetPath of ASSET_PATHS) {
+      if (!(await adapter.exists(this.getPluginPath(assetPath)))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private async installReleaseAssets(): Promise<void> {
+    const response = await requestUrl({
+      url: this.getReleaseZipUrl(),
+      method: "GET"
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`GitHub release asset returned HTTP ${response.status}.`);
+    }
+
+    const zip = await JSZip.loadAsync(response.arrayBuffer);
+
+    for (const [rawPath, entry] of Object.entries(zip.files)) {
+      const relativePath = normalizeZipPath(rawPath);
+      if (!relativePath || !isInstallableAssetPath(relativePath)) {
+        continue;
+      }
+
+      const targetPath = this.getPluginPath(relativePath);
+
+      if (entry.dir) {
+        if (!(await this.app.vault.adapter.exists(targetPath))) {
+          await this.app.vault.adapter.mkdir(targetPath);
+        }
+        continue;
+      }
+
+      await this.ensureParentFolder(targetPath);
+      const bytes = await entry.async("uint8array");
+      await this.app.vault.adapter.writeBinary(targetPath, toArrayBuffer(bytes));
+    }
+  }
+
+  private getReleaseZipUrl(): string {
+    return `https://github.com/msjang/obsidian-rhwp/releases/download/${this.manifest.version}/${RELEASE_ZIP_NAME}`;
+  }
+
+  private async writeAssetMarker(): Promise<void> {
+    await this.app.vault.adapter.write(
+      this.getPluginPath(ASSET_MARKER_FILE),
+      JSON.stringify(
+        {
+          pluginVersion: this.manifest.version,
+          rhwpCoreVersion: RHWP_CORE_VERSION
+        },
+        null,
+        2
+      )
+    );
+  }
+
+  private getPluginPath(relativePath: string): string {
+    return normalizePath(`${this.manifest.dir}/${relativePath}`);
+  }
+
+  private async ensureParentFolder(filePath: string): Promise<void> {
+    const parts = normalizePath(filePath).split("/");
+    parts.pop();
+
+    let current = "";
+    for (const part of parts) {
+      current = current ? `${current}/${part}` : part;
+      if (!(await this.app.vault.adapter.exists(current))) {
+        await this.app.vault.adapter.mkdir(current);
+      }
+    }
   }
 
   private registerFileMenu(): void {
@@ -728,6 +871,7 @@ class RhwpFileView extends FileView {
     this.showMessage(t("loadingEditor"));
 
     try {
+      await this.plugin.ensureAssetsReady();
       this.pagesEl?.empty();
       const hostEl = this.pagesEl?.createDiv({ cls: "rhwp-editor-host" });
       if (!hostEl) {
@@ -1085,6 +1229,29 @@ class RhwpSettingTab extends PluginSettingTab {
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(bytes);
   return copy.buffer;
+}
+
+function normalizeZipPath(rawPath: string): string | null {
+  const normalized = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  const parts = normalized.split("/").filter(Boolean);
+
+  if (parts.length === 0 || parts.includes("..")) {
+    return null;
+  }
+
+  return parts.join("/");
+}
+
+function isInstallableAssetPath(relativePath: string): boolean {
+  return (
+    relativePath === "rhwp_bg.wasm" ||
+    relativePath === ASSET_MARKER_FILE ||
+    relativePath.startsWith("rhwp-studio/")
+  );
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function sleep(ms: number): Promise<void> {

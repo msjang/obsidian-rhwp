@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && node scripts/copy-wasm.mjs",
-    "deploy:test-vault": "npm run build && node scripts/deploy-test-vault.mjs"
+    "deploy:test-vault": "npm run build && node scripts/deploy-test-vault.mjs",
+    "package:release": "npm run build && node scripts/package-release.mjs"
   },
   "keywords": [
     "hwp",
@@ -25,7 +26,8 @@
   "homepage": "https://github.com/msjang/obsidian-rhwp#readme",
   "dependencies": {
     "@rhwp/core": "^0.7.13",
-    "@rhwp/editor": "^0.7.13"
+    "@rhwp/editor": "^0.7.13",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^22.15.24",

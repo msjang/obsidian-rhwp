@@ -1,4 +1,4 @@
-import { cp, copyFile, mkdir, readFile } from "node:fs/promises";
+import { cp, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +24,19 @@ await cp(path.join(projectRoot, "rhwp-studio"), path.join(targetDir, "rhwp-studi
   recursive: true,
   force: true
 });
+
+const manifest = JSON.parse(await readFile(path.join(projectRoot, "manifest.json"), "utf8"));
+await writeFile(
+  path.join(targetDir, "rhwp-assets.json"),
+  JSON.stringify(
+    {
+      pluginVersion: manifest.version,
+      rhwpCoreVersion: "0.7.13"
+    },
+    null,
+    2
+  )
+);
 
 console.log(`Deployed HWPX Editor to ${targetDir}`);
 
