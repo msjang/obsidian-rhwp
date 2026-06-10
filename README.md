@@ -38,7 +38,7 @@ Large files can make Obsidian slow while rendering. rHWP Editor can ask before o
 
 ## Development
 
-Refer to [dev/prj](https://github.com/msjang/obsidian-rhwp-editor/tree/dev/prj) for development, verification, and release processes.
+Refer to [prj/](prj/) for development, verification, and release processes.
 
 
 ---
@@ -72,4 +72,4 @@ Refer to [dev/prj](https://github.com/msjang/obsidian-rhwp-editor/tree/dev/prj) 
 
 ## 개발
 
-개발, 검증, 릴리스 과정은 [dev 브랜치의 prj/](https://github.com/msjang/obsidian-rhwp-editor/tree/dev/prj)를 참고해주세요.
+개발, 검증, 릴리스 과정은 [prj/](prj/)를 참고해주세요.
