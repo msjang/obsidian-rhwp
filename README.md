@@ -18,6 +18,7 @@ Select a `.hwp` or `.hwpx` file in Obsidian to open it in read-only mode. Press 
 - ✏️ Edit: open edit mode
 - 💾 Save: save changes to the original file
 - 📖 Read-only: return to read-only mode
+- ↗️ Open in default app: open the current file with the system default app
 - 🔄 Reload: reload the current file
 
 ### Rename files
@@ -52,6 +53,7 @@ Refer to [prj/](prj/) for development, verification, and release processes.
 - ✏️ 편집: 편집 모드 열기
 - 💾 저장: 편집 내용을 원본 파일에 저장
 - 📖 읽기: 읽기 모드로 돌아가기
+- ↗️ 기본 앱에서 열기: 현재 파일을 시스템 기본 앱으로 열기
 - 🔄 새로고침: 현재 파일 다시 읽기
 
 ### Rename files (파일 이름 변경)

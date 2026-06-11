@@ -80,6 +80,9 @@ const I18N = {
     noAvailableName: "No available {{format}} file name found.",
     noOpenFile: "No HWP/HWPX file is open.",
     open: "Open",
+    openInDefaultApp: "Open in default app",
+    openInDefaultAppCurrentView: "Open current HWP/HWPX file in default app",
+    openInDefaultAppFailed: "Failed to open {{name}} in the default app: {{message}}",
     pageCount: "{{count}} {{pageWord}} · {{mode}}",
     propertyCreated: "created",
     propertyTitle: "Properties",
@@ -131,6 +134,9 @@ const I18N = {
     noAvailableName: "사용 가능한 {{format}} 파일 이름을 찾지 못했습니다.",
     noOpenFile: "열려 있는 HWP/HWPX 파일이 없습니다.",
     open: "열기",
+    openInDefaultApp: "기본 앱에서 열기",
+    openInDefaultAppCurrentView: "현재 HWP/HWPX 파일을 기본 앱에서 열기",
+    openInDefaultAppFailed: "{{name}} 기본 앱 열기 실패: {{message}}",
     pageCount: "{{count}}쪽 · {{mode}}",
     propertyCreated: "생성",
     propertyTitle: "속성",
@@ -206,6 +212,23 @@ export default class RhwpPlugin extends Plugin {
       name: t("createNewFile"),
       callback: () => {
         void this.createNewFile();
+      }
+    });
+
+    this.addCommand({
+      id: "open-current-rhwp-in-default-app",
+      name: t("openInDefaultAppCurrentView"),
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(RhwpFileView);
+        if (!view?.hasCurrentFile()) {
+          return false;
+        }
+
+        if (!checking) {
+          void view.openCurrentFileInDefaultApp();
+        }
+
+        return true;
       }
     });
   }
@@ -681,6 +704,41 @@ function registerMeasureTextWidth(): void {
   };
 }
 
+async function openPathInDefaultApp(filePath: string): Promise<string> {
+  const electronRequire =
+    typeof require === "function"
+      ? require
+      : (window as Window & { require?: NodeRequire }).require;
+
+  if (!electronRequire) {
+    throw new Error("Electron require is not available.");
+  }
+
+  const electron = electronRequire("electron") as {
+    shell?: {
+      openPath(path: string): Promise<string>;
+    };
+  };
+
+  if (!electron.shell?.openPath) {
+    throw new Error("Electron shell.openPath is not available.");
+  }
+
+  return electron.shell.openPath(filePath);
+}
+
+function getAdapterFullPath(adapter: unknown, normalizedPath: string): string {
+  const maybeAdapter = adapter as {
+    getFullPath?: (path: string) => string;
+  };
+
+  if (typeof maybeAdapter.getFullPath !== "function") {
+    throw new Error("Vault adapter cannot resolve local file paths.");
+  }
+
+  return maybeAdapter.getFullPath(normalizedPath);
+}
+
 class RhwpFileView extends FileView {
   private readonly plugin: RhwpPlugin;
   private pagesEl: HTMLElement | null = null;
@@ -801,6 +859,29 @@ class RhwpFileView extends FileView {
     await this.render();
   }
 
+  hasCurrentFile(): boolean {
+    return this.currentFile !== null;
+  }
+
+  async openCurrentFileInDefaultApp(): Promise<void> {
+    const file = this.currentFile;
+    if (!file) {
+      new Notice(t("noOpenFile"));
+      return;
+    }
+
+    try {
+      const fullPath = getAdapterFullPath(this.app.vault.adapter, file.path);
+      const openError = await openPathInDefaultApp(fullPath);
+
+      if (openError) {
+        throw new Error(openError);
+      }
+    } catch (error) {
+      new Notice(t("openInDefaultAppFailed", { name: file.name, message: getErrorMessage(error) }));
+    }
+  }
+
   private async render(): Promise<void> {
     const file = this.currentFile;
     this.contentEl.empty();
@@ -830,6 +911,16 @@ class RhwpFileView extends FileView {
       setIcon(readButton, "book-open");
       readButton.addEventListener("click", () => {
         void this.enableReadMode();
+      });
+    }
+
+    if (file) {
+      const defaultAppButton = toolbarEl.createEl("button", {
+        attr: { "aria-label": t("openInDefaultApp"), title: t("openInDefaultApp") }
+      });
+      setIcon(defaultAppButton, "external-link");
+      defaultAppButton.addEventListener("click", () => {
+        void this.openCurrentFileInDefaultApp();
       });
     }
 
